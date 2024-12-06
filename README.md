@@ -1,3 +1,20 @@
+<?php
+
+namespace App\Livewire\Users;
+
+use App\Models\User;
+use Livewire\Component;
+
+class IndexUser extends Component
+{
+    public function render()
+    {
+        return view('livewire.users.index-user', [
+            'users' => User::latest()->get()
+        ]);
+    }
+}
+###
 <div>
     <x-slot:header>
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
@@ -49,6 +66,7 @@
                             ],
                         ]"
                     />
+                    <livewire:components.form-modal />
                 </div>
             </div>
         </div>
@@ -56,6 +74,220 @@
 </div>
 ###
 <?php
+
+namespace App\Livewire\Components;
+
+use Livewire\Component;
+
+class FormInput extends Component
+{
+    public $type;
+    public $label;
+    public $id;
+    public $placeholder;
+    public $value;
+    public $class;
+    public $classNames;
+    public $required;
+
+    public function render()
+    {
+        return view('livewire.components.form-input');
+    }
+}
+###
+<div class="{{ $class }}">
+    <label for="{{ $id }}" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ $label }}</label>
+    <input type="{{ $type }}" id="{{ $id }}" wire:model.defer="{{ $id }}" class="{{ $classNames }}" placeholder="{{ $placeholder }}" value="{{ $value }}" required="{{ $required }}">
+</div>
+###
+<?php
+
+namespace App\Livewire\Components;
+
+use Livewire\Component;
+
+class FormSelect extends Component
+{
+    public $label;
+    public $id;
+    public $options;
+    public $value;
+    public $class;
+    public $classNames;
+    public $required;
+
+    public function render()
+    {
+        return view('livewire.components.form-select');
+    }
+}
+###
+<div class="{{ $class }}">
+    <label for="{{ $id }}" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ $label }}</label>
+    <select id="{{ $id }}" wire:model.defer="{{ $id }}" class="{{ $classNames }}" required="{{ $required }}">
+        @foreach ($options as $option)
+            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+        @endforeach
+    </select>
+</div>
+###
+<?php
+
+namespace App\Livewire\Components;
+
+use Livewire\Component;
+
+class FormTextArea extends Component
+{
+    public $label;
+    public $id;
+    public $placeholder;
+    public $value;
+    public $class;
+    public $classNames;
+    public function render()
+    {
+        return view('livewire.components.form-text-area');
+    }
+}
+###
+<div class="{{ $class }}">
+    <label for="{{ $id }}"
+        class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ $label }}</label>
+    <textarea id="{{ $id }}" wire:model.defer="{{ $id }}" rows="4" class="{{ $classNames }}"
+        placeholder="{{ $placeholder }}">{{ $value }}</textarea>
+</div>
+###
+<?php
+
+namespace App\Livewire\Components;
+
+use Livewire\Component;
+
+class FormModal extends Component
+{
+    public $title;
+    public $fields;
+    public $buttonText;
+    public $modelId;
+    public $showModal = false;
+
+    protected $listeners = ['openModal', 'closeModal'];
+
+    public function openModal($title, $fields, $buttonText, $modelId = null)
+    {
+        $this->title = $title;
+        $this->fields = $fields;
+        $this->buttonText = $buttonText;
+        $this->modelId = $modelId;
+        $this->showModal = true;
+    }
+
+    public function closeModal()
+    {
+        $this->showModal = false;
+    }
+
+    public function submit()
+    {
+        $data = [];
+        foreach ($this->fields as $field) {
+            $data[$field['id']] = $this->$field['id'];
+        }
+
+        $modelClass = 'App\\Models\\' . class_basename($this->modelId);
+
+        if ($this->modelId) {
+            $modelInstance = $modelClass::find($this->modelId);
+            $modelInstance->update($data);
+        } else {
+            $modelClass::create($data);
+        }
+
+        $this->closeModal();
+        $this->emit('refreshTable');
+    }
+
+    public function render()
+    {
+        return view('livewire.components.form-modal');
+    }
+}
+###
+<!-- resources/views/livewire/components/form-modal.blade.php -->
+<div>
+    @if($showModal)
+        <div id="crud-modal" tabindex="-1" aria-hidden="true"
+            class="fixed inset-0 z-50 flex items-center justify-center w-full h-full bg-gray-800 bg-opacity-75">
+            <div class="relative w-full max-w-md p-4">
+                <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+                    <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            {{ $title }}
+                        </h3>
+                        <button type="button" wire:click="closeModal"
+                            class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white">
+                            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 14 14">
+                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
+                            </svg>
+                            <span class="sr-only">Close modal</span>
+                        </button>
+                    </div>
+                    <form class="p-4 md:p-5" wire:submit.prevent="submit">
+                        <div class="grid gap-4 mb-4 grid-cols-2">
+                            @foreach ($fields as $field)
+                                @if (in_array($field['type'], ['text', 'email', 'number', 'password']))
+                                    <livewire:components.form-input 
+                                        :type="$field['type']" 
+                                        :label="$field['label']" 
+                                        :id="$field['id']" 
+                                        :placeholder="$field['placeholder']" 
+                                        :value="$field['value']" 
+                                        :class="$field['class']" 
+                                        :classNames="$field['classNames']" 
+                                        :required="$field['required']" 
+                                    />
+                                @elseif ($field['type'] === 'select')
+                                    <livewire:components.form-select 
+                                        :label="$field['label']" 
+                                        :id="$field['id']" 
+                                        :options="$field['options']" 
+                                        :value="$field['value']" 
+                                        :class="$field['class']" 
+                                        :classNames="$field['classNames']" 
+                                        :required="$field['required']" 
+                                    />
+                                @elseif ($field['type'] === 'textarea')
+                                    <livewire:components.form-textarea 
+                                        :label="$field['label']" 
+                                        :id="$field['id']" 
+                                        :placeholder="$field['placeholder']" 
+                                        :value="$field['value']" 
+                                        :class="$field['class']" 
+                                        :classNames="$field['classNames']" 
+                                    />
+                                @endif
+                            @endforeach
+                        </div>
+                        <button type="submit"
+                            class="text-white inline-flex items-center bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                            <svg class="me-1 -ms-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            {{ $buttonText }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+</div>
+###
+<?php
+
 namespace App\Livewire\Components;
 
 use Livewire\Component;
@@ -115,7 +347,7 @@ class Table extends Component
     {
         $data = [];
         foreach ($this->fields as $field) {
-            $data[$field['id']] = $this->{$field['id']};
+            $data[$field['id']] = $this->$field['id'];
         }
 
         if ($this->currentModelId) {
@@ -154,6 +386,8 @@ class Table extends Component
         ]);
     }
 }
+
+
 ###
 <!-- resources/views/livewire/components/table.blade.php -->
 <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
@@ -171,8 +405,8 @@ class Table extends Component
         <label for="table-search" class="sr-only">Search</label>
         <div class="relative">
             <div class="absolute inset-y-0 left-0 flex items-center ps-3 pointer-events-none">
-                <svg class="w-5 h-5 text-gray-500" aria-hidden="true" fill="currentColor"
-                    viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <svg class="w-5 h-5 text-gray-500" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"
+                    xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd"
                         d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
                         clip-rule="evenodd"></path>
@@ -201,7 +435,8 @@ class Table extends Component
         </thead>
         <tbody>
             @foreach ($items as $item)
-                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                <tr
+                    class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                     <td class="w-4 p-4">
                         <div class="flex items-center">
                             <input id="{{ $item->id }}" type="checkbox"
@@ -213,8 +448,10 @@ class Table extends Component
                         <td class="px-6 py-4">{{ $item->$key }}</td>
                     @endforeach
                     <td class="px-6 py-4 flex gap-x-2">
-                        <button wire:click="openEditModal('{{ $item->id }}')" class="font-medium text-yellow-600 hover:underline">Edit</button>
-                        <button wire:click="delete('{{ $item->id }}')" class="font-medium text-red-600 hover:underline">Delete</button>
+                        <button wire:click="openEditModal('{{ $item->id }}')"
+                            class="font-medium text-yellow-600 hover:underline">Edit</button>
+                        <button wire:click="delete('{{ $item->id }}')"
+                            class="font-medium text-red-600 hover:underline">Delete</button>
                     </td>
                 </tr>
             @endforeach
@@ -224,108 +461,6 @@ class Table extends Component
 
     <!-- Include FormModal Component -->
     @if ($showModal)
-        <livewire:components.form-modal :title="$modalTitle" :fields="$fields" :buttonText="$modalButtonText" :model="$currentModelId" />
-    @endif
-</div>
-<?php
-
-namespace App\Livewire\Components;
-
-use Livewire\Component;
-
-class FormModal extends Component
-{
-    public $title;
-    public $fields;
-    public $buttonText;
-    public $modelId;
-    public $showModal = false;
-
-    protected $listeners = ['openModal', 'closeModal'];
-
-    public function openModal($title, $fields, $buttonText, $modelId = null)
-    {
-        $this->title = $title;
-        $this->fields = $fields;
-        $this->buttonText = $buttonText;
-        $this->modelId = $modelId;
-        $this->showModal = true;
-    }
-
-    public function closeModal()
-    {
-        $this->showModal = false;
-    }
-
-    public function submit()
-    {
-        $data = [];
-        foreach ($this->fields as $field) {
-            $data[$field['id']] = $this->$field['id'];
-        }
-
-        if ($this->modelId) {
-            $modelClass = 'App\\Models\\' . $this->title;
-            $modelInstance = $modelClass::find($this->modelId);
-            $modelInstance->update($data);
-        } else {
-            $modelClass = 'App\\Models\\' . $this->title;
-            $modelClass::create($data);
-        }
-
-        $this->closeModal();
-        $this->emit('refreshTable');
-    }
-
-    public function render()
-    {
-        return view('livewire.components.form-modal');
-    }
-}
-###
-<!-- resources/views/livewire/components/form-modal.blade.php -->
-<div>
-    @if($showModal)
-        <div id="crud-modal" tabindex="-1" aria-hidden="true"
-            class="fixed inset-0 z-50 flex items-center justify-center w-full h-full bg-gray-800 bg-opacity-75">
-            <div class="relative w-full max-w-md p-4">
-                <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
-                    <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                            {{ $title }}
-                        </h3>
-                        <button type="button" wire:click="closeModal"
-                            class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white">
-                            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                viewBox="0 0 14 14">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
-                            </svg>
-                            <span class="sr-only">Close modal</span>
-                        </button>
-                    </div>
-                    <form class="p-4 md:p-5" wire:submit.prevent="submit">
-                        <div class="grid gap-4 mb-4 grid-cols-2">
-                            @foreach ($fields as $field)
-                                @if ($field['type'] === 'text' || $field['type'] === 'email' || $field['type'] === 'number' || $field['type'] === 'password')
-                                    <livewire:components.form-input :type="$field['type']" :label="$field['label']" :id="$field['id']" :placeholder="$field['placeholder']" :value="$field['value']" :class="$field['class']" :classNames="$field['classNames']" :required="$field['required']" />
-                                @elseif ($field['type'] === 'select')
-                                    <livewire:components.form-select :label="$field['label']" :id="$field['id']" :options="$field['options']" :value="$field['value']" :class="$field['class']" :classNames="$field['classNames']" :required="$field['required']" />
-                                @elseif ($field['type'] === 'textarea')
-                                    <livewire:components.form-textarea :label="$field['label']" :id="$field['id']" :placeholder="$field['placeholder']" :value="$field['value']" :class="$field['class']" :classNames="$field['classNames']" />
-                                @endif
-                            @endforeach
-                        </div>
-                        <button type="submit"
-                            class="text-white inline-flex items-center bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
-                            <svg class="me-1 -ms-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"></path>
-                            </svg>
-                            {{ $buttonText }}
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
+        <livewire:components.form-modal :title="$modalTitle" :fields="$fields" :buttonText="$modalButtonText" />
     @endif
 </div>
